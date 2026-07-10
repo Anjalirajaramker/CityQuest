@@ -342,27 +342,33 @@ async function showNearestPlaces() {
   const spinner = document.getElementById('loading-spinner');
   spinner.style.display = 'block';
 
-  // Step 1: local distance estimation
-  window.allDestinations.forEach(dest => {
-    if(dest.latitude && dest.longitude) {
-      dest.user_distance = getHaversine(window.userLat, window.userLon, dest.latitude, dest.longitude);
+  try {
+    // Step 1: local distance estimation
+    window.allDestinations.forEach(dest => {
+      if(dest.latitude && dest.longitude) {
+        dest.user_distance = getHaversine(window.userLat, window.userLon, dest.latitude, dest.longitude);
+      }
+    });
+
+    // Step 2: sort by approximate distance and pick top 5
+    const top5 = window.allDestinations
+      .filter(d => d.user_distance !== "N/A")
+      .sort((a,b) => parseFloat(a.user_distance) - parseFloat(b.user_distance))
+      .slice(0,5);
+
+    // Step 3: refine these 5 with OSRM
+    for (const dest of top5) {
+      dest.user_distance = await getRoadDistance(window.userLat, window.userLon, dest.latitude, dest.longitude);
+      await new Promise(r => setTimeout(r, 500)); // light delay
     }
-  });
 
-  // Step 2: sort by approximate distance and pick top 5
-  const top5 = window.allDestinations
-    .filter(d => d.user_distance !== "N/A")
-    .sort((a,b) => parseFloat(a.user_distance) - parseFloat(b.user_distance))
-    .slice(0,5);
-
-  // Step 3: refine these 5 with OSRM
-  for (const dest of top5) {
-    dest.user_distance = await getRoadDistance(window.userLat, window.userLon, dest.latitude, dest.longitude);
-    await new Promise(r => setTimeout(r, 500)); // light delay
+    displayDestinations(top5, window.userLat, window.userLon);
+  } catch (error) {
+    console.error('Error fetching nearest places:', error);
+    alert('Error loading nearest places. Please try again.');
+  } finally {
+    spinner.style.display = 'none';
   }
-
-  displayDestinations(top5, window.userLat, window.userLon);
-  spinner.style.display = 'none';
 }
 
 // Load destinations
@@ -376,29 +382,16 @@ async function loadDestinations() {
         createBudgetFilterOptions(destinations);
         createDistanceFilterOptions();
 
-        if(navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(pos => {
-                window.userLat = pos.coords.latitude;
-                window.userLon = pos.coords.longitude;
-                displayDestinations(destinations, window.userLat, window.userLon);
-                setupFilterListeners();
-            }, err => {
-                alert("Location permission denied. Distances will not be available.");
-                displayDestinations(destinations);
-                setupFilterListeners();
-            });
-        } else {
-            alert("Geolocation not supported.");
-            displayDestinations(destinations);
-            setupFilterListeners();
-        }
+        // Don't request location automatically - wait for user interaction
+        // Just display destinations without location first
+        displayDestinations(destinations);
+        setupFilterListeners();
 
         // Optional: Add nearest filter button dynamically
         const filterContainer = document.getElementById('filter-container');
-
         const nearestBtn = document.createElement('button');
-        nearestBtn.id='find-nearby-btn'
-        nearestBtn.textContent = 'Show Nearest 5 Places';
+        nearestBtn.id = 'find-nearby-btn'; // ID for testing
+        nearestBtn.textContent = '📍 Show Nearest Places';
         nearestBtn.style.background = '#007bff';
         nearestBtn.style.color = 'white';
         nearestBtn.style.border = 'none';
@@ -406,7 +399,48 @@ async function loadDestinations() {
         nearestBtn.style.borderRadius = '8px';
         nearestBtn.style.marginLeft = '1rem';
         nearestBtn.style.cursor = 'pointer';
-        nearestBtn.addEventListener('click', showNearestPlaces);
+        nearestBtn.style.fontSize = '1rem';
+        nearestBtn.style.fontWeight = '500';
+        
+        // Request location only when user clicks the button
+        nearestBtn.addEventListener('click', () => {
+            if(navigator.geolocation) {
+                nearestBtn.textContent = '⏳ Getting your location...';
+                nearestBtn.disabled = true;
+                
+                navigator.geolocation.getCurrentPosition(pos => {
+                    window.userLat = pos.coords.latitude;
+                    window.userLon = pos.coords.longitude;
+                    nearestBtn.textContent = '✅ Location Found!';
+                    nearestBtn.style.background = '#28a745';
+                    
+                    // Show nearest places
+                    showNearestPlaces();
+                    
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        nearestBtn.textContent = '📍 Show Nearest Places';
+                        nearestBtn.style.background = '#007bff';
+                        nearestBtn.disabled = false;
+                    }, 2000);
+                }, err => {
+                    console.error("Location permission denied:", err);
+                    nearestBtn.textContent = '❌ Location Denied';
+                    nearestBtn.style.background = '#dc3545';
+                    showNotification("Please allow location access to find nearby places", "error");
+                    
+                    // Reset button after 3 seconds
+                    setTimeout(() => {
+                        nearestBtn.textContent = '📍 Show Nearest Places';
+                        nearestBtn.style.background = '#007bff';
+                        nearestBtn.disabled = false;
+                    }, 3000);
+                });
+            } else {
+                showNotification("Geolocation is not supported by your browser", "error");
+            }
+        });
+        
         filterContainer.appendChild(nearestBtn);
 
     } catch(err) {
@@ -415,5 +449,49 @@ async function loadDestinations() {
             '<p class="error-message">Error loading destinations. Please try again later.</p>';
     }
 }
+
+// Simple notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    const bgColor = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#3b82f6';
+    
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${bgColor};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 9999;
+        font-weight: 500;
+        animation: slideIn 0.3s ease;
+        max-width: 400px;
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+}
+
+// Add animation CSS
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(400px); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
 
 document.addEventListener('DOMContentLoaded', loadDestinations);
