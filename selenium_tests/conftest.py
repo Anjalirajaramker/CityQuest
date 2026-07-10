@@ -7,64 +7,10 @@ import http.server
 import socketserver
 import time
 
-# Global server instance
-server = None
-server_thread = None
-PORT = 9999
+# The Docker container runs on port 8888
+PORT = 8888
 
-@pytest.fixture(scope="session", autouse=True)
-def start_server():
-    """
-    Start a local HTTP server to serve the project files.
-    This runs once for the entire test session.
-    Uses ThreadingTCPServer for parallel test execution.
-    """
-    global server, server_thread
-    
-    # Get project directory
-    project_path = os.path.join(os.path.dirname(__file__), "..", "Devops")
-    
-    # Change to project directory
-    os.chdir(project_path)
-    
-    # Create threaded HTTP server handler
-    Handler = http.server.SimpleHTTPRequestHandler
-    
-    # Use ThreadingTCPServer for handling concurrent requests
-    class ThreadedHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-        allow_reuse_address = True
-        daemon_threads = True
-    
-    try:
-        server = ThreadedHTTPServer(("", PORT), Handler)
-        print(f"\n🚀 Starting threaded HTTP server on http://localhost:{PORT}")
-        
-        # Run server in a separate thread
-        server_thread = threading.Thread(target=server.serve_forever)
-        server_thread.daemon = True
-        server_thread.start()
-        
-        # Give server time to start
-        time.sleep(2)
-        print(f"✅ Server running at http://localhost:{PORT}")
-        
-    except OSError as e:
-        if e.errno == 10048:  # Port already in use
-            print(f"⚠️  Port {PORT} already in use. Using existing server.")
-        else:
-            raise
-    
-    yield
-    
-    # Shutdown server
-    if server:
-        print(f"\n🛑 Shutting down server...")
-        try:
-            server.shutdown()
-            server.server_close()
-        except Exception as e:
-            print(f"⚠️  Error shutting down server: {e}")
-
+# Removed local HTTP server fixture since we are testing the Docker container
 
 @pytest.fixture
 def browser():

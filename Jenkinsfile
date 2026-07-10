@@ -37,9 +37,9 @@ pipeline {
 
         stage('Run Selenium Tests') {
             steps {
-                echo 'Running Selenium tests (using local files, not Docker frontend)...'
-                bat '"C:\\Users\\27ran\\AppData\\Local\\Programs\\Python\\Python312\\python.exe" -m pip install --upgrade pip selenium pytest'
-                bat '"C:\\Users\\27ran\\AppData\\Local\\Programs\\Python\\Python312\\python.exe" -m pytest selenium_tests --junitxml=selenium_tests/report.xml'
+                echo 'Running Selenium tests against Docker frontend...'
+                bat 'python -m pip install --upgrade pip selenium pytest'
+                bat 'python -m pytest selenium_tests --junitxml=selenium_tests/report.xml'
             }
         }
 
@@ -49,12 +49,13 @@ pipeline {
             }
         }
 
-        stage('Stop Frontend Container') {
-            steps {
-                echo 'Stopping and removing frontend container...'
-                bat 'docker stop hyderabad-frontend-jenkins && docker rm hyderabad-frontend-jenkins'
-                echo '✅ Frontend container stopped and removed'
-            }
+    }
+
+    post {
+        always {
+            echo 'Stopping and removing frontend container...'
+            bat 'docker rm -f hyderabad-frontend-jenkins || echo "Already removed"'
+            echo '✅ Frontend container stopped and removed'
         }
     }
 }

@@ -35,7 +35,8 @@ body {
 .main-header {
     background: var(--gradient-primary);
     color: white;
-    padding: 1.5rem 0;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     position: relative;
     overflow: hidden;
@@ -68,16 +69,24 @@ body {
     z-index: 2;
 }
 
+.logo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
 .logo h1 {
-    font-size: 2rem;
+    font-size: 2.2rem;
     font-weight: 700;
-    margin-bottom: 0.2rem;
+    margin: 0;
+    line-height: 1.2;
 }
 
 .logo p {
-    font-size: 0.9rem;
+    font-size: 1rem;
     opacity: 0.9;
-    font-weight: 300;
+    font-weight: 400;
+    margin: 0;
 }
 
 /* Enhanced Navigation */
@@ -180,10 +189,16 @@ body {
     margin-bottom: 2rem;
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    align-items: flex-start;
 }
 
 .filter-section {
-    margin-bottom: 2rem;
+    flex: 1;
+    min-width: 250px;
+    margin-bottom: 1rem;
 }
 
 .filter-section h3 {
@@ -260,6 +275,7 @@ body {
     justify-content: center;
     margin: 2rem 0 1rem 0;
     flex-wrap: wrap;
+    flex-basis: 100%;
 }
 
 .btn-primary, .btn-secondary {
@@ -332,7 +348,7 @@ body {
 /* Food Places Container */
 #food-places-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 2rem;
     padding: 1rem 0;
 }
